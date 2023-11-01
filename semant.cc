@@ -300,7 +300,7 @@ bool ClassTable::has_parent(Symbol child) {
 }
 
 std::vector<Symbol> ClassTable::get_path(Symbol c){
-    std::vector<Symbol> result;
+    std::vector<Symbol>result;
     result.push_back(c);
     while((c=get_parent(c))!=NULL){
         result.push_back(c);
@@ -313,9 +313,9 @@ bool ClassTable::class_defined(Symbol class_name){
 }
 
 bool ClassTable::is_cyclic(Symbol start_class){
-    std::vector<Symbol> stack;
+    std::vector<Symbol>stack;
     stack.push_back(start_class);
-    std::set<Symbol> visited;
+    std::set<Symbol>visited;
     while(!stack.empty()){
         Symbol top=stack.back();
         stack.pop_back();
@@ -333,7 +333,8 @@ Symbol find_common_ancestor(Symbol s1,  Symbol s2, Class_ c){
         if(s1==SELF_TYPE && s2==SELF_TYPE)
             return SELF_TYPE;
         if(s1==SELF_TYPE)  s1=c->get_name();
-        if(s2==SELF_TYPE)  s2=c->get_name();
+        else  
+          s2=c->get_name();
     }
 
     if(s1==No_type) return s2;
@@ -572,7 +573,7 @@ Symbol static_dispatch_class::get_expr_type(Class_ c){
   Symbol e0_type=get_e0()->get_expr_type(c);
   Expressions en=get_en();
   Symbol method_name=get_method_name();
-  std::vector<Symbol> types;
+  std::vector<Symbol>types;
   Method method;
 
   if(get_type()==SELF_TYPE){
@@ -621,7 +622,7 @@ Symbol dispatch_class::get_expr_type(Class_ c){
   Symbol method_name,e0_type,dispatch_class;
   method_name=get_method_name();
   e0_type=get_e0()->get_expr_type(c);
-  std::vector<Symbol> types;
+  std::vector<Symbol>types;
 
   for(int i=en->first();en->more(i);i=en->next(i)){
     types.push_back(en->nth(i)->get_expr_type(c));
@@ -651,7 +652,7 @@ Symbol cond_class::get_expr_type(Class_ c){
 
   pred=get_pred()->get_expr_type(c);
   e1=get_then()->get_expr_type(c);
-  e2=get_then()->get_expr_type(c);
+  e2=get_else()->get_expr_type(c);
 
   if(pred != Bool){
     semantic_error(c->get_filename(),this)<<"Predication is not Bool type.\n";
@@ -938,9 +939,10 @@ void method_class::check_inheritance_features(Class_ c){
     }
     if(prevdef->number_of_params()!=thisclass->number_of_params()){
       semantic_error(c->get_filename(),this)<<"In redefined method "<<get_method_name()->get_string()<<",the parameters number is different from the orginal method.\n";
-    }else{
-      for(int i=0;i<prevdef->number_of_params();i++){
-        if(prevdef->parameters[i].type!=thisclass->parameters[i].type){
+    }
+    else{
+      for(int i=0;i<thisclass->number_of_params();i++){
+        if(thisclass->parameters[i].type!=prevdef->parameters[i].type){
           semantic_error(c->get_filename(),this)<<"In redefined method "<<get_method_name()->get_string()<<",parameter type "<<thisclass->parameters[i].type->get_string()<<" is different from orginal parameter type"<<prevdef->parameters[i].type->get_string()<<".\n";
         }
       }
@@ -1012,67 +1014,70 @@ void program_class::semant()
     initialize_constants();
 
     /* ClassTable constructor may do some semantic analysis */
-    ClassTable *classtable = new ClassTable(classes);
+    classtable = new ClassTable(classes);
 
-    /* some semantic analysis code may go here */
-    if(!class_defined(Main)){
-      classtable->semant_error()<<"Main class is not defined.\n";
+    /* Check presence of Main class */
+    if (!class_defined(Main)) {
+      classtable->semant_error() << "Class Main is not defined.\n";
     }
+
     if (classtable->errors()) {
-	    cerr << "Compilation halted due to static semantic errors." << endl;
-	    exit(1);
+      cerr << "Compilation halted due to static semantic errors." << endl;
+      exit(1);
     }
 
+
+    int i, j;
     Features ftrs;
     Feature ftr;
-    int i,j;
     Class_ curr;
     std::map<Symbol,Class_>::iterator it;
-    for(it=class_map.begin();it!=class_map.end();it++){
+    for (it=class_map.begin();it!=class_map.end();it++) {
       ENVIRONMENT[it->first]=SymTable();
       enterscope(it->first);
       enter_method_scope(it->first);
-      add_object(self,SELF_TYPE,it->second);
+      add_object(self, SELF_TYPE, it->second);
       curr=it->second;
       ftrs=curr->get_features();
-      for(i=ftrs->first();ftrs->more(i);i=ftrs->next(i)){
+      for (i=ftrs->first();ftrs->more(i);i=ftrs->next(i)) {
         ftr=ftrs->nth(i);
         ftr->add_feature(curr);
       }
     }
 
-    if(class_defined(Main)){
-      Method method_main = lookup_method(main_meth,class_map[Main],true);
-      if(!method_main){
-        semantic_error(class_map[Main])<<"No main method in Main class.\n";
-      }else{
-        if(method_main->number_of_params()!=0){
-          semantic_error(class_map[Main])<<"main method in Main class must have no argument.\n";
-        }
+
+    if (class_defined(Main)) {
+      Method main_method = lookup_method(main_meth, class_map[Main], true);
+      if (!main_method) {
+        semantic_error(class_map[Main]) << "No 'main' method in class Main.\n";
+      } else if (main_method->number_of_params() != 0) {
+        semantic_error(class_map[Main]) << " method main in class Main " << "must have no arguments.\n";
       }
     }
 
-    for(it=class_map.begin();it!=class_map.end();it++){
+
+    for (it=class_map.begin();it!=class_map.end();it++) {
       curr=it->second;
       ftrs=curr->get_features();
-      for(i=ftrs->first();ftrs->more(i);i=ftrs->next(i)){
+      for(i=ftrs->first();ftrs->more(i);i=ftrs->next(i)) {
         ftr=ftrs->nth(i);
         ftr->check_inheritance_features(curr);
       }
     }
 
-    for(it=class_map.begin();it!=class_map.end();it++){
+    for(it=class_map.begin(); it!=class_map.end(); it++) {
       curr=it->second;
       ftrs=curr->get_features();
-      for(i=ftrs->first();ftrs->more(i);i=ftrs->next(i)){
+      for (i=ftrs->first();ftrs->more(i);i=ftrs->next(i)) {
         ftr=ftrs->nth(i);
         ftr->set_expression(curr);
       }
     }
 
-    if(classtable->semant_error()){
-      cerr<<"Compilation halt due to static semantic errors.\n";
+    
+    if (classtable->errors()) {
+      cerr << "Compilation halted due to static semantic errors." << endl;
+      exit(1);
     }
 }
-
 
