@@ -74,8 +74,8 @@ ${SRC} :
 ${LSRC} :
 	-${CLASSDIR}/etc/link-shared ${ASSN} ${LSRC}
 
-${TSRC} ${CSRC}:
-	-ln -s ${CLASSDIR}/src/PA${ASSN}/$@ $@
+# ${TSRC} ${CSRC}:
+#	-ln -s ${CLASSDIR}/src/PA${ASSN}/$@ $@
 
 ${HSRC}:
 	-ln -s ${CLASSDIR}/include/PA${ASSN}/$@ $@
